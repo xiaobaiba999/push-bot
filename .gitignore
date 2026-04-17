@@ -1,0 +1,5 @@
+node_modules/
+push/push/
+.env
+*.zip
+.DS_Store
