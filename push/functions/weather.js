@@ -73,7 +73,12 @@ module.exports = handleWeather = async () => {
     try {
         const { daily, fxLink, uv } = await getWeather(weather.city, parseInt(weather.index))
         let day = ['今日', '明日', '后天'][weather.index]
+        
         let rainTip = daily.iconDay >= 300 && daily.iconDay < 400 ? `\n· ${day}有雨, 出门记得带伞哦☔` : ''
+        
+        let tempColor = getTempColor(daily.tempMax)
+        let windColor = getWindColor(parseInt(daily.windScaleDay))
+        
         let uvLine = ''
         if (uv) {
             const uvInfo = getUVLevel(uv.text)
@@ -81,10 +86,26 @@ module.exports = handleWeather = async () => {
         } else {
             uvLine = '\n· 紫外线 暂无数据'
         }
-        let weatherContent = `🌍${weather.city}${day}天气:\n· ${day}气温 ${daily.tempMin} ~ ${daily.tempMax}℃  ${daily.textDay}\n· ${day}风况 ${daily.windDirDay} ${daily.windScaleDay}级${rainTip}${uvLine}\n· 天气详情: https://www.qweather.com/weather/longzihu-101220205.html`
+        
+        let weatherContent = `🌍${weather.city}${day}天气:\n· 🌡️【气温 ${tempColor}${daily.tempMin} ~ ${daily.tempMax}℃${tempColor}】 ${daily.textDay}\n· 💨【风况 ${windColor}${daily.windDirDay} ${daily.windScaleDay}级${windColor}】${rainTip}${uvLine}\n· 天气详情: https://www.qweather.com/weather/longzihu-101220205.html`
         return weatherContent
     } catch (error) {
         console.log('处理天气数据失败', error.message || error)
         return `🌍天气获取失败，记得看天气预报哦~\n· 天气详情: https://www.qweather.com/weather/longzihu-101220205.html`
     }
+}
+
+const getTempColor = (maxTemp) => {
+    if (maxTemp <= 10) return '🔵'
+    if (maxTemp <= 20) return '🟢'
+    if (maxTemp <= 30) return '🟡'
+    if (maxTemp <= 35) return '🟠'
+    return '🔴'
+}
+
+const getWindColor = (windScale) => {
+    if (windScale <= 2) return '🍃'
+    if (windScale <= 4) return '🌿'
+    if (windScale <= 6) return '💨'
+    return '🌪️'
 }
