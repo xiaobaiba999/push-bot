@@ -117,7 +117,7 @@ const handleContent = async () => {
     }
 
     if (memorial.open) {
-      content.push(`\n\n🏠我们的纪念网站:\n复制链接在浏览器打开: www.liyaoyao.top`)
+      content.push(`\n\n🏠我们的纪念网站:\n👉 https://www.liyaoyao.top`)
       cLog('纪念网站链接添加成功')
     }
 

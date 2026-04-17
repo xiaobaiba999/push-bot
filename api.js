@@ -1,5 +1,6 @@
 const express = require('express')
 const crypto = require('crypto')
+const xml2js = require('xml2js')
 
 const app = express()
 
@@ -45,8 +46,41 @@ app.post('/callback', async (req, res) => {
         console.log(`[POST /callback] 收到请求`)
         console.log(`  Content-Type: ${req.headers['content-type']}`)
         
-        res.send('success')
-        console.log(`  ✅ 已接收消息`)
+        let fromUserName = ''
+        let toUserName = ''
+        
+        if (typeof req.body === 'string' && req.body.includes('<xml>')) {
+            const parseXml = () => {
+                return new Promise((resolve, reject) => {
+                    xml2js.parseString(req.body, { explicitArray: false }, (err, result) => {
+                        if (err) reject(err)
+                        else resolve(result)
+                    })
+                })
+            }
+
+            const xmlData = await parseXml()
+            const xml = xmlData.xml
+            
+            fromUserName = xml.FromUserName || ''
+            toUserName = xml.ToUserName || ''
+            
+            console.log(`  XML解析: FromUserName=${fromUserName}, ToUserName=${toUserName}`)
+        }
+        
+        const createTime = Math.floor(Date.now() / 1000)
+        
+        const replyXml = `<xml>
+<ToUserName><![CDATA[${fromUserName}]]></ToUserName>
+<FromUserName><![CDATA[${toUserName}]]></FromUserName>
+<CreateTime>${createTime}</CreateTime>
+<MsgType><![CDATA[text]]></MsgType>
+<Content><![CDATA[收到你的消息啦~💕 每日推送正在运行中，期待明天的见面哦～]]></Content>
+</xml>`
+        
+        res.set('Content-Type', 'application/xml')
+        res.send(replyXml)
+        console.log(`  ✅ 已回复XML消息`)
     } catch (error) {
         console.error('[POST /callback] 错误:', error.message)
         res.status(500).send(error.message)
