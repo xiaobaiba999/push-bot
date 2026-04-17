@@ -1,11 +1,13 @@
 const express = require('express')
 const axios = require('axios')
 const crypto = require('crypto')
+const xml2js = require('xml2js')
 
 const app = express()
+
+app.use(express.text({ type: 'text/xml' }))
 app.use(express.json())
 
-// 从环境变量读取配置（Vercel 部署用环境变量）
 const aiConfig = {
   open: true,
   provider: 'nvidia',
@@ -15,20 +17,20 @@ const aiConfig = {
 }
 
 const robotKey = process.env.WX_ROBOT_KEY || ''
+const WX_CORP_ID = process.env.WX_CORP_ID || ''
+const WX_AGENT_ID = process.env.WX_AGENT_ID || ''
+const WX_SECRET = process.env.WX_SECRET || ''
 
-// AI对话上下文缓存
 const conversationCache = new Map()
 const MAX_HISTORY = 5
 
-// 企业微信配置（从环境变量或默认值读取）
 const WX_TOKEN = process.env.WX_TOKEN || ''
 const WX_ENCODING_AES_KEY = process.env.WX_ENCODING_AES_KEY || ''
 
 app.get('/', (req, res) => {
-    res.json({ status: 'ok', message: 'Push Bot API is running' })
+    res.json({ status: 'ok', message: 'Push Bot API is running', mode: 'enterprise-wechat-app' })
 })
 
-// 企业微信回调验证（GET请求 - URL验证）
 app.get('/callback', (req, res) => {
     try {
         const { msg_signature, timestamp, nonce, echostr } = req.query
@@ -40,7 +42,6 @@ app.get('/callback', (req, res) => {
             return res.status(400).send('missing echostr')
         }
         
-        // 如果有token，进行签名验证
         if (WX_TOKEN) {
             const signature = getSignature(WX_TOKEN, timestamp, nonce, echostr)
             if (signature !== msg_signature) {
@@ -50,7 +51,6 @@ app.get('/callback', (req, res) => {
             console.log(`  ✅ 签名验证通过`)
         }
         
-        // 直接返回echostr（企业微信要求原样返回）
         res.send(echostr)
         console.log(`  ✅ 返回echostr成功`)
     } catch (error) {
@@ -59,56 +59,92 @@ app.get('/callback', (req, res) => {
     }
 })
 
-// AI对话主接口（POST请求 - 接收消息）
 app.post('/callback', async (req, res) => {
     try {
-        let body = req.body
-        
-        // 解析消息（企业微信XML格式或JSON格式）
-        const userId = body.FromUserName || body.FromUserID || body.fromUserId || 'default_user'
-        const userMessage = (body.Content || body.content || '').trim()
+        console.log(`[POST /callback] 收到请求`)
+        console.log(`  Content-Type: ${req.headers['content-type']}`)
+        console.log(`  Body:`, req.body?.substring(0, 200) || req.body)
+
+        let userId = 'default_user'
+        let userMessage = ''
+        let toUserName = ''
+        let fromUserName = ''
+        let createTime = ''
+        let msgId = ''
+        let agentId = ''
+
+        if (typeof req.body === 'string' && req.body.includes('<xml>')) {
+            console.log(`  检测到XML格式（企业微信自建应用）`)
+            
+            const parseXml = () => {
+                return new Promise((resolve, reject) => {
+                    xml2js.parseString(req.body, { explicitArray: false }, (err, result) => {
+                        if (err) reject(err)
+                        else resolve(result)
+                    })
+                })
+            }
+
+            const xmlData = await parseXml()
+            const xml = xmlData.xml
+            
+            fromUserName = xml.FromUserName || ''
+            toUserName = xml.ToUserName || ''
+            createTime = xml.CreateTime || ''
+            userMessage = (xml.Content || '').trim()
+            msgId = xml.MsgId || ''
+            agentId = xml.AgentId || ''
+            
+            userId = fromUserId || 'default_user'
+            
+            console.log(`  XML解析结果:`)
+            console.log(`    FromUserName: ${fromUserName}`)
+            console.log(`    Content: ${userMessage}`)
+            console.log(`    AgentId: ${agentId}`)
+        } else if (typeof req.body === 'object') {
+            console.log(`  检测到JSON格式（群机器人）`)
+            
+            userId = req.body.FromUserName || req.body.FromUserID || req.body.fromUserId || 'default_user'
+            userMessage = (req.body.Content || req.body.content || '').trim()
+        }
 
         console.log(`[${new Date().toLocaleString()}] 用户 ${userId}: ${userMessage}`)
 
         if (!userMessage) {
-            return res.json({ success: false, msg: '空消息' })
+            console.log(`  ⚠️ 空消息，返回success`)
+            return res.send('success')
         }
 
-        // 特殊指令
         if (userMessage === '历史记录' || userMessage === '查看对话') {
             const history = getHistory(userId)
-            await sendToWeChat(history)
-            return res.json({ success: true, msg: '历史记录已发送' })
+            await sendToWeChatApp(userId, history)
+            return res.send('success')
         }
 
         if (userMessage === '清除记录') {
             conversationCache.delete(userId)
-            await sendToWeChat('对话记录已清除~')
-            return res.json({ success: true, msg: '记录已清除' })
+            await sendToWeChatApp(userId, '对话记录已清除~')
+            return res.send('success')
         }
 
-        // AI对话
         const reply = await chatWithAI(userId, userMessage)
         
-        // 通过企业微信Webhook回复
-        await sendToWeChat(`🤖 ${reply}`)
+        await sendToWeChatApp(userId, reply)
         
-        res.json({ success: true, msg: '回复已发送' })
+        res.send('success')
 
     } catch (error) {
         console.error('[POST /callback] 处理失败:', error.message)
-        res.status(500).json({ success: false, msg: error.message })
+        res.status(500).send(error.message)
     }
 })
 
-// 企业微信签名算法
 function getSignature(token, timestamp, nonce, echostr) {
     const arr = [token, timestamp, nonce, echostr].sort()
     const str = arr.join('')
     return crypto.createHash('sha1').update(str).digest('hex')
 }
 
-// AI对话函数
 async function chatWithAI(userId, userMessage) {
     try {
         if (!conversationCache.has(userId)) {
@@ -187,5 +223,59 @@ async function sendToWeChat(content) {
     })
 }
 
-// Vercel 兼容：导出 app（不要调用 app.listen）
+async function sendToWeChatApp(userId, content) {
+    if (robotKey) {
+        console.log(`📤 通过群机器人Webhook发送`)
+        await sendToWeChat(content)
+        return
+    }
+
+    if (!WX_CORP_ID || !WX_SECRET || !WX_AGENT_ID) {
+        console.log(`⚠️ 未配置企业微信应用凭证(CORP_ID/SECRET/AGENT_ID)，无法发送消息`)
+        console.log(`   需要在Vercel环境变量中配置:`)
+        console.log(`   - WX_CORP_ID (企业ID)`)
+        console.log(`   - WX_SECRET (应用Secret)`)
+        console.log(`   - WX_AGENT_ID (应用AgentId)`)
+        return
+    }
+
+    try {
+        console.log(`📤 通过企业微信API发送给用户: ${userId}`)
+        
+        const tokenRes = await axios.get(
+            `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${WX_CORP_ID}&corpsecret=${WX_SECRET}`,
+            { timeout: 5000 }
+        )
+
+        if (tokenRes.data.errcode !== 0) {
+            throw new Error(`获取access_token失败: ${tokenRes.data.errmsg}`)
+        }
+
+        const accessToken = tokenRes.data.access_token
+
+        const sendRes = await axios.post(
+            `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${accessToken}`,
+            {
+                touser: userId,
+                msgtype: "text",
+                agentid: parseInt(WX_AGENT_ID),
+                text: { content }
+            },
+            {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 5000
+            }
+        )
+
+        if (sendRes.data.errcode === 0) {
+            console.log(`✅ 消息发送成功`)
+        } else {
+            console.error(`❌ 消息发送失败: ${sendRes.data.errmsg} (${sendRes.data.errcode})`)
+        }
+
+    } catch (error) {
+        console.error(`❌ 发送消息异常:`, error.message)
+    }
+}
+
 module.exports = app
