@@ -34,11 +34,39 @@ const getUVIndex = async (cityId) => {
 
 const getUVLevel = (uvText) => {
     const uvIndex = parseInt(uvText)
-    if (uvIndex <= 2) return { level: 1, desc: '最弱', advice: '无需特别防护' }
-    if (uvIndex <= 5) return { level: 2, desc: '弱', advice: '适当涂抹防晒霜' }
-    if (uvIndex <= 7) return { level: 3, desc: '中等', advice: '外出需涂防晒霜、戴帽子' }
-    if (uvIndex <= 10) return { level: 4, desc: '强', advice: '避免长时间户外活动，必须防晒' }
-    return { level: 5, desc: '极强', advice: '尽量避免外出，必须全面防护' }
+    if (uvIndex <= 2) return { level: 1, desc: '最弱', color: '🟢', advice: '无需特别防护', travel: '放心出门玩耍～' }
+    if (uvIndex <= 5) return { level: 2, desc: '弱', color: '🟡', advice: '适当涂抹防晒霜', travel: '出门涂点防晒霜就好～' }
+    if (uvIndex <= 7) return { level: 3, desc: '中等', color: '🟠', advice: '外出需涂防晒霜、戴帽子', travel: '出门记得涂SPF30+防晒霜，戴帽子哦❤️' }
+    if (uvIndex <= 10) return { level: 4, desc: '强', color: '🔴', advice: '避免长时间户外活动，必须防晒', travel: '出门记得涂SPF50+的防晒霜，带遮阳伞哦❤️' }
+    return { level: 5, desc: '极强', color: '⚫', advice: '尽量避免外出，必须全面防护', travel: '紫外线很强，尽量别在太阳下暴晒，出门必须全副武装❤️' }
+}
+
+const getTempColor = (maxTemp) => {
+    if (maxTemp <= 10) return '🔵'
+    if (maxTemp <= 20) return '🟢'
+    if (maxTemp <= 30) return '🟡'
+    if (maxTemp <= 35) return '🟠'
+    return '🔴'
+}
+
+const getWindColor = (windScale) => {
+    if (windScale <= 2) return '🍃'
+    if (windScale <= 4) return '🌿'
+    if (windScale <= 6) return '💨'
+    return '🌪️'
+}
+
+const getOutfitAdvice = (tempMin, tempMax) => {
+    const avg = (parseInt(tempMin) + parseInt(tempMax)) / 2
+    if (avg <= 0) return '🧥 天寒地冻！穿厚羽绒服+保暖内衣+围巾手套，里三层外三层就对了～'
+    if (avg <= 5) return '🧥 很冷！穿厚羽绒服+毛衣+保暖裤，别让自己冻着～'
+    if (avg <= 10) return '🧥 偏冷！穿棉服/厚外套+毛衣+长裤，出门记得戴围巾～'
+    if (avg <= 15) return '🧥 微冷！穿薄外套+长袖T恤+长裤，早晚加件外套就好～'
+    if (avg <= 20) return '👔 舒适！穿薄外套+长袖T恤就刚刚好～'
+    if (avg <= 25) return '👕 温暖！穿短袖/薄长袖+长裤/裙子，很适合出门～'
+    if (avg <= 30) return '🩳 偏热！穿短袖短裤/短裙，轻薄透气最重要～'
+    if (avg <= 35) return '🩳 炎热！穿最轻薄的衣服，尽量待在室内～'
+    return '🩳 酷暑！能不出门就不出门，出门必须防晒防暑～'
 }
 
 const getWeather = async (cityName, index = 0) => {
@@ -73,18 +101,28 @@ module.exports = handleWeather = async () => {
     try {
         const { daily, fxLink, uv } = await getWeather(weather.city, parseInt(weather.index))
         let day = ['今日', '明日', '后天'][weather.index]
-        let rainTip = daily.iconDay >= 300 && daily.iconDay < 400 ? `\n· ${day}有雨, 出门记得带伞哦☔` : ''
+        
+        let rainTip = daily.iconDay >= 300 && daily.iconDay < 400 ? `\n· ☔${day}有雨, 出门记得带伞哦！` : ''
+        
+        let tempColor = getTempColor(daily.tempMax)
+        let windColor = getWindColor(parseInt(daily.windScaleDay))
+        
         let uvLine = ''
+        let travelLine = ''
         if (uv) {
             const uvInfo = getUVLevel(uv.text)
-            uvLine = `\n· 紫外线 ${uvInfo.level}级(${uvInfo.desc}) - ${uvInfo.advice}`
+            uvLine = `\n· ☀️【紫外线 ${uvInfo.color} ${uvInfo.level}级(${uvInfo.desc})${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
+            travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
         } else {
             uvLine = '\n· 紫外线 暂无数据'
         }
-        let weatherContent = `🌍${weather.city}${day}天气:\n· ${day}气温 ${daily.tempMin} ~ ${daily.tempMax}℃  ${daily.textDay}\n· ${day}风况 ${daily.windDirDay} ${daily.windScaleDay}级${rainTip}${uvLine}\n· 天气详情: https://www.qweather.com/weather/longzihu-101220205.html`
+        
+        let outfitLine = `\n· 👗【穿搭建议】${getOutfitAdvice(daily.tempMin, daily.tempMax)}`
+        
+        let weatherContent = `🌍${weather.city}${day}天气:\n· 🌡️【气温 ${tempColor}${daily.tempMin} ~ ${daily.tempMax}℃${tempColor}】 ${daily.textDay}\n· 💨【风况 ${windColor}${daily.windDirDay} ${daily.windScaleDay}级${windColor}】${rainTip}${uvLine}${travelLine}${outfitLine}\n· 🔗天气详情: ${fxLink || 'https://www.qweather.com'}`
         return weatherContent
     } catch (error) {
         console.log('处理天气数据失败', error.message || error)
-        return `🌍天气获取失败，记得看天气预报哦~\n· 天气详情: https://www.qweather.com/weather/longzihu-101220205.html`
+        return `🌍天气获取失败，记得看天气预报哦～`
     }
 }

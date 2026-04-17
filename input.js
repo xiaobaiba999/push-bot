@@ -49,71 +49,7 @@ let classTable = {
     open: false,
     startTime: [2023, 9, 4],
     index: 0,
-    list: [
-        {
-            name: '税务管理',
-            address: 'A-108',
-            week: [1, 3, 5, 7, 9, 11, 13, 15],
-            day: [1],
-            jie: [2],
-        },
-        {
-            name: '税务管理',
-            address: 'C-304',
-            week: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            day: [3],
-            jie: [1],
-        },
-        {
-            name: '地方财政学',
-            address: 'A-308',
-            week: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            day: [1],
-            jie: [4],
-        },
-        {
-            name: '国际经济学',
-            address: 'C-110',
-            week: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            day: [2],
-            jie: [2],
-        },
-        {
-            name: '税收风险管理',
-            address: 'A-101',
-            week: [1, 3, 5, 7, 9, 11, 13, 15],
-            day: [2],
-            jie: [3],
-        },
-        {
-            name: '税收风险管理',
-            address: 'A-301',
-            week: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            day: [4],
-            jie: [3],
-        },
-        {
-            name: '税收筹划',
-            address: 'C-301',
-            week: [1, 3, 5, 7, 9, 11, 13, 15],
-            day: [3],
-            jie: [2],
-        },
-        {
-            name: '税收筹划',
-            address: 'E-207',
-            week: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            day: [5],
-            jie: [1],
-        },
-        {
-            name: '税收综合模拟实验',
-            address: '系北楼202',
-            week: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-            day: [4],
-            jie: [1],
-        },
-    ],
+    list: [],
     endWord: '爱你宝宝💓',
 }
 
@@ -125,28 +61,30 @@ let memorial = {
     open: true,
 }
 
-let aiConfig = {
+let progress = {
     open: true,
-    provider: 'deepseek',
-    apiKey: '',
-    model: 'deepseek-chat',
-    systemPrompt: '你是一个温柔体贴的AI助手，专门为情侣提供日常问候、天气建议和甜蜜互动。回答要简洁温暖，每次回复不超过100字。',
+    targetDays: 3650,
+    targetName: '十年之约',
+    startDate: '2023-02-28',
 }
 
-// provider 可选值:
-//   'deepseek' - DeepSeek API (https://platform.deepseek.com), 免费额度500万tokens/月
-//   'nvidia'  - NVIDIA NIM API (https://build.nvidia.com), 免费额度40次/分钟
-//
-// nvidia 模型可选值:
-//   'z-ai/glm-4-9b-chat'     - GLM-4 9B, 中文能力强, 推荐
-//   'z-ai/glm-4.7'          - GLM-4.7 358B MoE, 最新版, 推理/编码强
-//   'moonshotai/kimi-k2-instruct' - Kimi K2, 长上下文
-//   'deepseek-ai/deepseek-v3.2'     - DeepSeek V3.2 via NIM
-//
-// 获取 NVIDIA API Key 步骤:
-//   1. 访问 https://build.nvidia.com
-//   2. 点击右上角 Login，使用邮箱/QQ/微信登录
-//   3. 验证邮箱后，点击 API Keys → Generate API Key
-//   4. 复制以 nvapi- 开头的 Key 到下方 apiKey
+let solarTerm = {
+    open: true,
+}
 
-module.exports = { robotKey, start, weather, daily, end, atAll, classTable, sentence, memorial, aiConfig }
+let fortune = {
+    open: true,
+}
+
+let lifeTip = {
+    open: true,
+    period: {
+        open: true,
+        lastPeriodDate: '2026-04-14',
+        cycleDays: 30,
+        fluctuation: 5,
+        advanceRemindDays: 3,
+    }
+}
+
+module.exports = { robotKey, start, weather, daily, end, atAll, classTable, sentence, memorial, progress, solarTerm, fortune, lifeTip }
