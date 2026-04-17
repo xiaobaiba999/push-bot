@@ -187,10 +187,5 @@ async function sendToWeChat(content) {
     })
 }
 
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
-    console.log(`\n🤖 Push Bot API running on port ${PORT}`)
-    console.log(`📡 Callback URL: https://push-bot-sootxvercel.app/callback\n`)
-})
-
+// Vercel 兼容：导出 app（不要调用 app.listen）
 module.exports = app
