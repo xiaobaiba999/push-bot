@@ -14,11 +14,37 @@ const cLog = (...msg) => {
 const handleContent = async () => {
   try {
     let content = []
-    const { start, weather, daily, end, classTable, sentence, memorial } = require('./input')
+    const { start, weather, daily, end, classTable, sentence, memorial, progress, solarTerm, fortune, lifeTip } = require('./input')
 
     if (start.open) {
       content.push(`${start.content}`)
       cLog('开头语处理成功', start.content)
+    }
+
+    if (solarTerm && solarTerm.open) {
+      try {
+        const handleSolarTerm = require('./functions/solarTerm')
+        const solarTermContent = await handleSolarTerm()
+        if (solarTermContent) {
+          content.push(`\n\n${solarTermContent}`)
+          cLog('节气彩蛋处理成功')
+        }
+      } catch (e) {
+        cLog('节气彩蛋处理失败', e.message || e)
+      }
+    }
+
+    if (lifeTip && lifeTip.open) {
+      try {
+        const handleLifeTip = require('./functions/lifeTip')
+        const lifeTipContent = await handleLifeTip()
+        if (lifeTipContent) {
+          content.push(`\n\n${lifeTipContent}`)
+          cLog('生活提醒处理成功')
+        }
+      } catch (e) {
+        cLog('生活提醒处理失败', e.message || e)
+      }
     }
 
     if (classTable.open) {
@@ -54,6 +80,28 @@ const handleContent = async () => {
       } catch (e) {
         cLog('纪念日处理失败', e.message || e)
         content.push('\n\n📆纪念日计算失败~')
+      }
+    }
+
+    if (progress && progress.open) {
+      try {
+        const handleProgress = require('./functions/progressBar')
+        const progressContent = await handleProgress()
+        content.push(`\n\n${progressContent}`)
+        cLog('恋爱进度条处理成功')
+      } catch (e) {
+        cLog('恋爱进度条处理失败', e.message || e)
+      }
+    }
+
+    if (fortune && fortune.open) {
+      try {
+        const handleFortune = require('./functions/fortune')
+        const fortuneContent = await handleFortune()
+        content.push(`\n\n${fortuneContent}`)
+        cLog('运势处理成功')
+      } catch (e) {
+        cLog('运势处理失败', e.message || e)
       }
     }
 
@@ -136,26 +184,20 @@ module.exports.callback = async (ctx) => {
     return JSON.stringify({ success: false, msg: 'unsupported method' })
 }
 
-// ==================== 腾讯云 SCF 兼容入口 ====================
-// 腾讯云云函数 SCF 使用 main_handler 作为入口
 exports.main_handler = async (event, context) => {
   try {
     cLog('腾讯云 SCF 触发', context.function_name)
     
-    // 判断触发类型
     const triggerType = event.TriggerName || 'unknown'
     
-    // HTTP 触发（API 网关）
     if (event.httpMethod || (event.headers && event.requestContext)) {
       return await handleTencentCloudHTTP(event, context)
     }
     
-    // 定时触发
     if (triggerType.includes('timer') || event.Type === 'Timer') {
       return await module.exports.handler()
     }
     
-    // 默认执行推送
     return await module.exports.handler()
   } catch (error) {
     cLog('腾讯云 SCF 执行失败', error.message || error)
@@ -167,20 +209,17 @@ exports.main_handler = async (event, context) => {
   }
 }
 
-// 腾讯云 HTTP 触发器处理
 const handleTencentCloudHTTP = async (event, context) => {
   const httpMethod = event.httpMethod || 'GET'
   const queryString = event.queryString || {}
   const body = event.body || '{}'
   
-  // 构造兼容的 ctx 对象
   const tencentCtx = {
     method: httpMethod,
     queries: queryString,
     body: typeof body === 'string' ? body : JSON.stringify(body)
   }
   
-  // 调用回调处理
   const result = await module.exports.callback(tencentCtx)
   
   return {
@@ -190,7 +229,6 @@ const handleTencentCloudHTTP = async (event, context) => {
   }
 }
 
-// ==================== 本地测试 ====================
 const isLocal = typeof require.main !== 'undefined' && require.main === module
 if (isLocal) {
   const express = require('express')
