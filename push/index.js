@@ -116,11 +116,6 @@ const handleContent = async () => {
       }
     }
 
-    if (memorial.open) {
-      content.push(`\n\n🏠我们的纪念网站:\n👉 https://www.liyaoyao.top`)
-      cLog('纪念网站链接添加成功')
-    }
-
     if (end.open) {
       content.push(`\n\n${end.content}`)
       cLog('结束语处理成功')
@@ -140,19 +135,10 @@ module.exports.handler = async (ctx) => {
   try {
     _ctx = ctx
     const { getNowDay } = require('./functions/utils')
-    const { memorial } = require('./input')
     cLog('__当前时间为__', getNowDay(_ctx))
     const content = await handleContent()
     const robot = require('./functions/robotPush')
     const res = await robot(content)
-    if (memorial.open) {
-      try {
-        await robot.sendMarkdown(`🏠 **我们的纪念网站**\n> [点击访问 liyaoyao.top](https://www.liyaoyao.top)\n> 如无法点击，请复制链接在浏览器打开: www.liyaoyao.top`)
-        cLog('纪念网站markdown推送成功')
-      } catch (e) {
-        cLog('纪念网站markdown推送失败', e.message || e)
-      }
-    }
     return JSON.stringify({ success: true, data: res })
   } catch (error) {
     cLog('推送失败', error.message || error)
