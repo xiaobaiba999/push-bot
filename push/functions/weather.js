@@ -34,11 +34,11 @@ const getUVIndex = async (cityId) => {
 
 const getUVLevel = (uvText) => {
     const uvIndex = parseInt(uvText)
-    if (uvIndex <= 2) return { level: 1, desc: '最弱', advice: '无需特别防护' }
-    if (uvIndex <= 5) return { level: 2, desc: '弱', advice: '适当涂抹防晒霜' }
-    if (uvIndex <= 7) return { level: 3, desc: '中等', advice: '外出需涂防晒霜、戴帽子' }
-    if (uvIndex <= 10) return { level: 4, desc: '强', advice: '避免长时间户外活动，必须防晒' }
-    return { level: 5, desc: '极强', advice: '尽量避免外出，必须全面防护' }
+    if (uvIndex <= 2) return { level: 1, desc: '最弱', color: '🟢', advice: '无需特别防护' }
+    if (uvIndex <= 5) return { level: 2, desc: '弱', color: '🟡', advice: '适当涂抹防晒霜' }
+    if (uvIndex <= 7) return { level: 3, desc: '中等', color: '🟠', advice: '外出需涂防晒霜、戴帽子' }
+    if (uvIndex <= 10) return { level: 4, desc: '强', color: '🔴', advice: '避免长时间户外活动，必须防晒' }
+    return { level: 5, desc: '极强', color: '⚫', advice: '尽量避免外出，必须全面防护' }
 }
 
 const getWeather = async (cityName, index = 0) => {
@@ -77,7 +77,7 @@ module.exports = handleWeather = async () => {
         let uvLine = ''
         if (uv) {
             const uvInfo = getUVLevel(uv.text)
-            uvLine = `\n· 紫外线 ${uvInfo.level}级(${uvInfo.desc}) - ${uvInfo.advice}`
+            uvLine = `\n· ☀️【紫外线 ${uvInfo.color} ${uvInfo.level}级(${uvInfo.desc})${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
         } else {
             uvLine = '\n· 紫外线 暂无数据'
         }
