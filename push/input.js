@@ -58,7 +58,7 @@ let sentence = {
 }
 
 let memorial = {
-    open: false,
+    open: true,
 }
 
 let progress = {
