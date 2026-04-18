@@ -153,6 +153,25 @@ module.exports.handler = async (ctx) => {
 
 module.exports.push = module.exports.handler
 
+module.exports.weatherPush = async (ctx) => {
+  try {
+    _ctx = ctx
+    const { getNowDay } = require('./functions/utils')
+    cLog('__天气推送时间__', getNowDay(_ctx))
+    
+    const handleWeather = require('./functions/weather')
+    const weatherContent = await handleWeather()
+    
+    const robot = require('./functions/robotPush')
+    const res = await robot(weatherContent)
+    
+    return JSON.stringify({ success: true, data: res })
+  } catch (error) {
+    cLog('天气推送失败', error.message || error)
+    return JSON.stringify({ success: false, errMsg: error.message || error })
+  }
+}
+
 module.exports.callback = async (ctx) => {
     const callbackHandler = require('./functions/callbackHandler')
     

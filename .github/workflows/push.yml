@@ -1,12 +1,23 @@
-name: WeChat Daily Push
+name: WeChat Push Bot
 
 on:
   schedule:
-    - cron: '0 22 * * *'
+    - cron: '0 22 * * *'           # 每天6:00AM 北京时间 → 完整推送
+    - cron: '0 0,2,4,6,8,10,12 * *' # 每2小时天气推送 (6/8/10/12/14/16/18点)
   workflow_dispatch:
+    inputs:
+      mode:
+        description: '推送模式'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - weather
 
 jobs:
-  push:
+  full_push:
+    if: github.event.inputs.mode == 'full' || github.event.inputs.mode == '' || github.event_name == 'schedule' && github.event.schedule != '0 0,2,4,6,8,10,12 * *'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -22,8 +33,30 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run push bot
+      - name: Run full push
         env:
           NV_API_KEY: ${{ secrets.NV_API_KEY }}
           TZ: Asia/Shanghai
         run: node -e "const {handler} = require('./index'); handler().then(r => console.log('PUSH_RESULT:', r)).catch(e => console.error('PUSH_ERROR:', e.message))"
+
+  weather_push:
+    if: github.event.inputs.mode == 'weather' || (github.event_name == 'schedule' && github.event.schedule == '0 0,2,4,6,8,10,12 * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run weather push only
+        env:
+          TZ: Asia/Shanghai
+        run: node -e "const {weatherPush} = require('./index'); weatherPush().then(r => console.log('WEATHER_PUSH_RESULT:', r)).catch(e => console.error('WEATHER_PUSH_ERROR:', e.message))"
