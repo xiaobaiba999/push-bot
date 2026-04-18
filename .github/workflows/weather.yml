@@ -1,12 +1,12 @@
-name: WeChat Full Push
+name: WeChat Weather Push
 
 on:
   schedule:
-    - cron: '0 22 * * *'           # 每天6:00AM 北京时间
+    - cron: '0 0,2,4,6,8,10 * * *'   # 每2小时: 北京时间 8/10/12/14/16/18点
   workflow_dispatch:
 
 jobs:
-  push:
+  weather_push:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -22,8 +22,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run full push
+      - name: Run weather push only
         env:
-          NV_API_KEY: ${{ secrets.NV_API_KEY }}
           TZ: Asia/Shanghai
-        run: node -e "const {handler} = require('./index'); handler().then(r => console.log('PUSH_RESULT:', r)).catch(e => console.error('PUSH_ERROR:', e.message))"
+        run: node -e "const {weatherPush} = require('./index'); weatherPush().then(r => console.log('WEATHER_PUSH_RESULT:', r)).catch(e => console.error('WEATHER_PUSH_ERROR:', e.message))"
