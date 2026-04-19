@@ -4,7 +4,7 @@ const periodConfig = {
     open: true,
     lastPeriodDate: '2026-04-14',
     cycleDays: 30,
-    periodDuration: 5,
+    periodDuration: 7,
     advanceRemindDays: 3,
 }
 
