@@ -59,42 +59,41 @@ const phaseInfo = {
     },
 }
 
-const getPeriodPhase = (daysSinceLast, cycleDays, periodDuration) => {
-    const dayInCycle = daysSinceLast % cycleDays
-
+const getPeriodPhase = (dayInCycle, cycleDays, periodDuration) => {
     if (dayInCycle < periodDuration) {
         return {
             phase: 'period',
-            dayInPhase: dayInCycle + 1,
+            dayInPhase: dayInCycle,
             totalDays: periodDuration,
         }
     }
 
     const ovulationDay = cycleDays - 14
-    const follicularEnd = ovulationDay - 1
 
-    if (dayInCycle < follicularEnd) {
+    if (dayInCycle < ovulationDay) {
         return {
             phase: 'follicular',
             dayInPhase: dayInCycle - periodDuration + 1,
-            totalDays: follicularEnd - periodDuration,
+            totalDays: ovulationDay - periodDuration - 1,
         }
     }
 
-    if (dayInCycle >= ovulationDay - 1 && dayInCycle <= ovulationDay + 1) {
+    if (dayInCycle >= ovulationDay - 2 && dayInCycle <= ovulationDay) {
         return {
             phase: 'ovulation',
-            dayInPhase: dayInCycle - ovulationDay + 2,
+            dayInPhase: dayInCycle - ovulationDay + 3,
             totalDays: 3,
         }
     }
 
     return {
         phase: 'luteal',
-        dayInPhase: dayInCycle - ovulationDay - 1 + 1,
-        totalDays: cycleDays - ovulationDay - 1,
+        dayInPhase: dayInCycle - ovulationDay,
+        totalDays: cycleDays - ovulationDay,
     }
 }
+
+const formatDate = (y, m, d) => `${y}年${m}月${d}日`
 
 const getPeriodInfo = () => {
     if (!periodConfig.open) return null
@@ -109,42 +108,74 @@ const getPeriodInfo = () => {
     const nowDateObj = new Date(nowYear, nowMonth - 1, nowDay)
     const lastDateObj = new Date(lastYear, lastMonth - 1, lastDay)
 
-    const daysSinceLast = Math.round((nowDateObj - lastDateObj) / (3600 * 1000 * 24))
-    const daysUntilNext = periodConfig.cycleDays - (daysSinceLast % periodConfig.cycleDays)
-    const isInPeriodRange = (daysSinceLast % periodConfig.cycleDays) < periodConfig.periodDuration
+    const totalDaysSinceLast = Math.round((nowDateObj - lastDateObj) / (3600 * 1000 * 24))
+    
+    const completedCycles = Math.floor(totalDaysSinceLast / periodConfig.cycleDays)
+    const currentCycleDay = totalDaysSinceLast % periodConfig.cycleDays
+    
+    const actualLastPeriod = new Date(lastDateObj)
+    actualLastPeriod.setDate(actualLastPeriod.getDate() + completedCycles * periodConfig.cycleDays)
+    
+    const nextPeriodDate = new Date(actualLastPeriod)
+    nextPeriodDate.setDate(nextPeriodDate.getDate() + periodConfig.cycleDays)
+    
+    const daysUntilNext = Math.round((nextPeriodDate - nowDateObj) / (3600 * 1000 * 24))
+    const isInPeriodRange = currentCycleDay < periodConfig.periodDuration
     const isNearPeriod = daysUntilNext <= periodConfig.advanceRemindDays && daysUntilNext > 0
 
-    const phaseData = getPeriodPhase(daysSinceLast, periodConfig.cycleDays, periodConfig.periodDuration)
+    const phaseData = getPeriodPhase(currentCycleDay, periodConfig.cycleDays, periodConfig.periodDuration)
 
     return {
+        totalDaysSinceLast,
+        completedCycles,
+        currentCycleDay: currentCycleDay + 1,
         daysUntilNext,
         isInPeriodRange,
         isNearPeriod,
-        daysSinceLast: daysSinceLast % periodConfig.cycleDays,
-        dayInCycle: daysSinceLast % periodConfig.cycleDays + 1,
+        actualLastPeriod,
+        nextPeriodDate,
         phaseData,
     }
 }
 
 const handleLifeTip = async () => {
     try {
-        const date = getNowDay()
         let content = ''
 
-        const periodInfo = getPeriodInfo()
-        if (periodInfo) {
-            const phase = periodInfo.phaseData
-            const info = phaseInfo[phase.phase]
-            const tipIndex = phase.dayInPhase % info.tips.length
+        const info = getPeriodInfo()
+        if (!info) return content
 
-            content += `🩷【${info.emoji}${info.name}】第${periodInfo.dayInCycle}天/周期${periodConfig.cycleDays}天`
-            content += `\n· ${info.tips[tipIndex]}`
-            content += `\n· ${info.care}`
-            content += `\n· 🍽️饮食建议:\n· ${info.diet}`
-
-            if (periodInfo.isNearPeriod && !periodInfo.isInPeriodRange) {
-                content += `\n· ⏰距离下次经期还有 ${periodInfo.daysUntilNext} 天，提前备好用品哦～`
+        const phase = info.phaseData
+        const phaseDetail = phaseInfo[phase.phase]
+        const tipIndex = Math.abs(phase.dayInPhase) % phaseDetail.tips.length
+        
+        const cycleNum = info.completedCycles + 1
+        content += `🩷【${phaseDetail.emoji}${phaseDetail.name}】第${info.currentCycleDay}天/第${cycleNum}个周期`
+        
+        if (info.completedCycles > 0) {
+            content += `\n· 📅上次月经: ${formatDate(info.actualLastPeriod.getFullYear(), info.actualLastPeriod.getMonth() + 1, info.actualLastPeriod.getDate())}`
+        }
+        
+        content += `\n· ${phaseDetail.tips[tipIndex]}`
+        content += `\n· ${phaseDetail.care}`
+        
+        if (!info.isInPeriodRange) {
+            content += `\n· ⏰预计下次月经: ${formatDate(info.nextPeriodDate.getFullYear(), info.nextPeriodDate.getMonth() + 1, info.nextPeriodDate.getDate())}（还有${info.daysUntilNext}天）`
+            
+            if (info.isNearPeriod) {
+                content += `\n· 🔔快到经期了，提前备好用品哦～`
             }
+        } else {
+            const remaining = periodConfig.periodDuration - info.currentCycleDay
+            if (remaining > 0 && remaining <= 2) {
+                content += `\n· 💕经期即将结束，再坚持一下~`
+            }
+        }
+
+        content += `\n· 🍽️饮食建议:\n· ${phaseDetail.diet}`
+
+        if (Math.abs(daysDiff(info.actualLastPeriod, info.nextPeriodDate) - periodConfig.cycleDays) > 5) {
+            content += `\n· ⚠️检测到周期可能不太规律（实际间隔${daysDiff(info.actualLastPeriod, info.nextPeriodDate)}天），建议关注身体变化~`
         }
 
         return content
@@ -154,6 +185,9 @@ const handleLifeTip = async () => {
     }
 }
 
-module.exports = handleLifeTip
+function daysDiff(d1, d2) {
+    return Math.round((d2 - d1) / (3600 * 1000 * 24))
+}
 
+module.exports = handleLifeTip
 module.exports.periodConfig = periodConfig
