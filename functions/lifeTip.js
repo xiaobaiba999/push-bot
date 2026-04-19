@@ -99,13 +99,17 @@ const getPeriodPhase = (daysSinceLast, cycleDays, periodDuration) => {
 const getPeriodInfo = () => {
     if (!periodConfig.open) return null
 
-    const date = getNowDay()
-    const nowTime = `${date.getFullYear()}-${addZerp(date.getMonth() + 1)}-${addZerp(date.getDate())}`
+    const date = new Date()
+    const nowYear = date.getFullYear()
+    const nowMonth = date.getMonth() + 1
+    const nowDay = date.getDate()
 
-    const lastPeriod = new Date(periodConfig.lastPeriodDate.replace(/-/g, '/'))
-    const now = new Date(nowTime.replace(/-/g, '/'))
+    const [lastYear, lastMonth, lastDay] = periodConfig.lastPeriodDate.split('-').map(Number)
 
-    const daysSinceLast = Math.floor((now - lastPeriod) / (3600 * 1000 * 24))
+    const nowDateObj = new Date(nowYear, nowMonth - 1, nowDay)
+    const lastDateObj = new Date(lastYear, lastMonth - 1, lastDay)
+
+    const daysSinceLast = Math.round((nowDateObj - lastDateObj) / (3600 * 1000 * 24))
     const daysUntilNext = periodConfig.cycleDays - (daysSinceLast % periodConfig.cycleDays)
     const isInPeriodRange = (daysSinceLast % periodConfig.cycleDays) < periodConfig.periodDuration
     const isNearPeriod = daysUntilNext <= periodConfig.advanceRemindDays && daysUntilNext > 0
