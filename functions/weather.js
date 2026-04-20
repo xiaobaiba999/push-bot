@@ -54,7 +54,7 @@ const getUVLevel = (uvIndex) => {
     return { level: 5, desc: '极强', color: '⚫', advice: '尽量避免外出，必须全面防护', travel: '紫外线很强，尽量别在太阳下暴晒，出门必须全副武装❤️' }
 }
 
-const estimateRealTimeUV = (dailyUV, hour, weatherText) => {
+const estimateRealTimeUV = (dailyUV, hour, weatherText, month) => {
     const maxUV = parseInt(dailyUV)
     if (isNaN(maxUV) || maxUV <= 0) return 0
 
@@ -66,14 +66,39 @@ const estimateRealTimeUV = (dailyUV, hour, weatherText) => {
     else if (hour >= 7 && hour <= 17) timeFactor = 0.2
     else return 0
 
-    let weatherFactor = 1.0
-    const text = (weatherText || '').toLowerCase()
-    if (text.includes('雨') || text.includes('暴')) weatherFactor = 0.3
-    else if (text.includes('阴') || text.includes('雾') || text.includes('霾')) weatherFactor = 0.4
-    else if (text.includes('多云')) weatherFactor = 0.7
-    else if (text.includes('晴')) weatherFactor = 1.0
+    let seasonFactor = 1.0
+    if (month >= 6 && month <= 8) seasonFactor = 1.15
+    else if (month >= 5 || month === 9) seasonFactor = 1.05
+    else if (month >= 4 || month === 10) seasonFactor = 0.95
+    else if (month >= 11 || month <= 2) seasonFactor = 0.75
+    else seasonFactor = 0.85
 
-    return Math.max(0, Math.round(maxUV * timeFactor * weatherFactor))
+    const text = (weatherText || '').toLowerCase()
+    let weatherFactor = 1.0
+
+    if (text.includes('大暴雨') || text.includes('雷暴') || text.includes('冰雹')) {
+        weatherFactor = 0.15
+    } else if (text.includes('大雨') || text.includes('中雨') || text.includes('雷阵雨')) {
+        weatherFactor = 0.25
+    } else if (text.includes('小雨') || text.includes('阵雨') || text.includes('毛毛雨')) {
+        weatherFactor = 0.45
+    } else if (text.includes('重度霾') || text.includes('浓雾') || text.includes('沙尘')) {
+        weatherFactor = 0.25
+    } else if (text.includes('霾') || text.includes('轻雾') || text.includes('薄雾') || text.includes('浮尘')) {
+        weatherFactor = 0.35
+    } else if (text.includes('阴') || text.includes('厚云')) {
+        weatherFactor = 0.40
+    } else if (text.includes('少云') || text.includes('散片云')) {
+        weatherFactor = 0.80
+    } else if (text.includes('多云')) {
+        weatherFactor = 0.65
+    } else if (text.includes('晴间多云') || text.includes('晴转多云')) {
+        weatherFactor = 0.85
+    } else if (text.includes('晴') || text.includes('阳光充足')) {
+        weatherFactor = 1.0
+    }
+
+    return Math.max(0, Math.round(maxUV * timeFactor * seasonFactor * weatherFactor))
 }
 
 const getTempColor = (temp) => {
@@ -165,7 +190,8 @@ const handleWeather = async () => {
         let travelLine = ''
         if (uvData) {
             const currentWeatherText = nowData ? nowData.text : daily.textDay
-            const realTimeUV = estimateRealTimeUV(uvData.text, currentHour, currentWeatherText)
+            const currentMonth = new Date().getMonth() + 1
+            const realTimeUV = estimateRealTimeUV(uvData.text, currentHour, currentWeatherText, currentMonth)
             const uvInfo = getUVLevel(realTimeUV)
             
             if (currentHour >= 18 || currentHour < 6) {
