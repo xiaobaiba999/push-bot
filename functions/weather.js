@@ -46,13 +46,34 @@ const getNowWeather = async (cityId) => {
     }
 }
 
-const getUVLevel = (uvText) => {
-    const uvIndex = parseInt(uvText)
+const getUVLevel = (uvIndex) => {
     if (uvIndex <= 2) return { level: 1, desc: '最弱', color: '🟢', advice: '无需特别防护', travel: '放心出门玩耍～' }
     if (uvIndex <= 5) return { level: 2, desc: '弱', color: '🟡', advice: '适当涂抹防晒霜', travel: '出门涂点防晒霜就好～' }
     if (uvIndex <= 7) return { level: 3, desc: '中等', color: '🟠', advice: '外出需涂防晒霜、戴帽子', travel: '出门记得涂SPF30+防晒霜，戴帽子哦❤️' }
     if (uvIndex <= 10) return { level: 4, desc: '强', color: '🔴', advice: '避免长时间户外活动，必须防晒', travel: '出门记得涂SPF50+的防晒霜，带遮阳伞哦❤️' }
     return { level: 5, desc: '极强', color: '⚫', advice: '尽量避免外出，必须全面防护', travel: '紫外线很强，尽量别在太阳下暴晒，出门必须全副武装❤️' }
+}
+
+const estimateRealTimeUV = (dailyUV, hour, weatherText) => {
+    const maxUV = parseInt(dailyUV)
+    if (isNaN(maxUV) || maxUV <= 0) return 0
+
+    let timeFactor = 0
+    if (hour >= 11 && hour <= 13) timeFactor = 1.0
+    else if (hour >= 10 && hour <= 14) timeFactor = 0.85
+    else if (hour >= 9 && hour <= 15) timeFactor = 0.65
+    else if (hour >= 8 && hour <= 16) timeFactor = 0.4
+    else if (hour >= 7 && hour <= 17) timeFactor = 0.2
+    else return 0
+
+    let weatherFactor = 1.0
+    const text = (weatherText || '').toLowerCase()
+    if (text.includes('雨') || text.includes('暴')) weatherFactor = 0.3
+    else if (text.includes('阴') || text.includes('雾') || text.includes('霾')) weatherFactor = 0.4
+    else if (text.includes('多云')) weatherFactor = 0.7
+    else if (text.includes('晴')) weatherFactor = 1.0
+
+    return Math.max(0, Math.round(maxUV * timeFactor * weatherFactor))
 }
 
 const getTempColor = (temp) => {
@@ -119,6 +140,7 @@ const handleWeather = async () => {
         const fxLink = dailyRes.data.fxLink
         const day = ['今日', '明日', '后天'][weather.index]
         const period = getTimePeriod()
+        const currentHour = new Date().getHours()
 
         let rainTip = daily.iconDay >= 300 && daily.iconDay < 400 ? `\n· ☔${day}有雨, 出门记得带伞哦！` : ''
 
@@ -142,9 +164,16 @@ const handleWeather = async () => {
         let uvLine = ''
         let travelLine = ''
         if (uvData) {
-            const uvInfo = getUVLevel(uvData.text)
-            uvLine = `\n· ☀️【紫外线 ${uvInfo.color} ${uvInfo.level}级(${uvInfo.desc})${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
-            travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
+            const currentWeatherText = nowData ? nowData.text : daily.textDay
+            const realTimeUV = estimateRealTimeUV(uvData.text, currentHour, currentWeatherText)
+            const uvInfo = getUVLevel(realTimeUV)
+            
+            if (currentHour >= 18 || currentHour < 6) {
+                uvLine = `\n· 🌙【当前紫外线 🟢 0级(无)🟢】夜间无紫外线`
+            } else {
+                uvLine = `\n· ☀️【${period}紫外线 ${uvInfo.color} ${uvInfo.level}级(${uvInfo.desc})${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
+                travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
+            }
         } else {
             uvLine = '\n· 紫外线 暂无数据'
         }
@@ -154,7 +183,7 @@ const handleWeather = async () => {
 
         let weatherContent = `🌍${weather.city}${day}天气:${nowLine}${dailyLine}${rainTip}${uvLine}${travelLine}${outfitLine}\n· 🔗天气详情: ${fxLink || 'https://www.qweather.com'}`
         
-        console.log('获取天气成功，含实时数据')
+        console.log('获取天气成功，含实时紫外线数据')
         return weatherContent
     } catch (error) {
         console.log('处理天气数据失败', error.message || error)
