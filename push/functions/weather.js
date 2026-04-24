@@ -69,46 +69,6 @@ const getUVLevelInfo = (apiCategory, apiLevel) => {
     return categoryMap['中等']
 }
 
-const estimateRealTimeUVLevel = (apiLevel, hour, weatherText) => {
-    const level = parseInt(apiLevel)
-    if (isNaN(level) || level <= 0) return null
-
-    if (hour >= 18 || hour < 6) return null
-
-    let timeFactor = 1.0
-    if (hour >= 11 && hour <= 13) timeFactor = 1.0
-    else if (hour === 10 || hour === 14) timeFactor = 0.85
-    else if (hour === 9 || hour === 15) timeFactor = 0.65
-    else if (hour === 8 || hour === 16) timeFactor = 0.45
-    else if (hour === 7 || hour === 17) timeFactor = 0.25
-
-    const text = (weatherText || '').toLowerCase()
-    let weatherFactor = 1.0
-
-    if (text.includes('大暴雨') || text.includes('雷暴') || text.includes('冰雹')) {
-        weatherFactor = 0.3
-    } else if (text.includes('大雨') || text.includes('中雨') || text.includes('雷阵雨')) {
-        weatherFactor = 0.5
-    } else if (text.includes('小雨') || text.includes('阵雨')) {
-        weatherFactor = 0.7
-    } else if (text.includes('重度霾') || text.includes('浓雾') || text.includes('沙尘')) {
-        weatherFactor = 0.4
-    } else if (text.includes('霾') || text.includes('雾') || text.includes('浮尘')) {
-        weatherFactor = 0.6
-    } else if (text.includes('阴')) {
-        weatherFactor = 0.65
-    } else if (text.includes('多云')) {
-        weatherFactor = 0.85
-    }
-
-    const estimatedValue = level * timeFactor * weatherFactor
-    if (estimatedValue >= 4.5) return 5
-    if (estimatedValue >= 3.5) return 4
-    if (estimatedValue >= 2.5) return 3
-    if (estimatedValue >= 1.5) return 2
-    return 1
-}
-
 const getTempColor = (temp) => {
     const t = parseInt(temp)
     if (t <= 10) return '🔵'
@@ -200,19 +160,12 @@ const handleWeather = async () => {
             const uvLevel = parseInt(uvData.level)
             const apiCategory = uvData.category
             const uvInfo = getUVLevelInfo(apiCategory, uvLevel)
-            const currentWeatherText = nowData ? nowData.text : daily.textDay
-            const estimatedLevel = estimateRealTimeUVLevel(uvData.level, currentHour, currentWeatherText)
 
             if (currentHour >= 18 || currentHour < 6) {
                 uvLine = `\n· 🌙【当前紫外线 🟢 无🟢】夜间无紫外线`
             } else {
                 uvLine = `\n· ☀️【${period}紫外线 ${uvInfo.color} ${uvInfo.desc}(${uvLevel}级)${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
                 travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
-
-                if (estimatedLevel !== null && estimatedLevel !== uvLevel) {
-                    const estInfo = getUVLevelInfo(null, estimatedLevel)
-                    uvLine += `\n  🕐当前估算${estInfo.desc}(${estimatedLevel}级)`
-                }
             }
         } else {
             uvLine = '\n· 紫外线 暂无数据'
