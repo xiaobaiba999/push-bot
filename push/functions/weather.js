@@ -21,6 +21,7 @@ const getUVIndex = async (cityId) => {
         if (res.data.code == 200) {
             return {
                 category: res.data.daily[0].category,
+                level: res.data.daily[0].level,
                 text: res.data.daily[0].text,
             }
         } else {
@@ -46,59 +47,66 @@ const getNowWeather = async (cityId) => {
     }
 }
 
-const getUVLevel = (uvIndex) => {
-    if (uvIndex <= 2) return { level: 1, desc: '最弱', color: '🟢', advice: '无需特别防护', travel: '放心出门玩耍～' }
-    if (uvIndex <= 5) return { level: 2, desc: '弱', color: '🟡', advice: '适当涂抹防晒霜', travel: '出门涂点防晒霜就好～' }
-    if (uvIndex <= 7) return { level: 3, desc: '中等', color: '🟠', advice: '外出需涂防晒霜、戴帽子', travel: '出门记得涂SPF30+防晒霜，戴帽子哦❤️' }
-    if (uvIndex <= 10) return { level: 4, desc: '强', color: '🔴', advice: '避免长时间户外活动，必须防晒', travel: '出门记得涂SPF50+的防晒霜，带遮阳伞哦❤️' }
-    return { level: 5, desc: '极强', color: '⚫', advice: '尽量避免外出，必须全面防护', travel: '紫外线很强，尽量别在太阳下暴晒，出门必须全副武装❤️' }
+const getUVLevelInfo = (apiCategory, apiLevel) => {
+    const categoryMap = {
+        '最弱': { level: 1, desc: '最弱', color: '🟢', advice: '无需特别防护', travel: '放心出门玩耍～' },
+        '弱': { level: 2, desc: '弱', color: '🟢', advice: '无需特别防护', travel: '放心出门玩耍～' },
+        '中等': { level: 3, desc: '中等', color: '🟡', advice: '适当涂抹防晒霜', travel: '出门涂点防晒霜就好～' },
+        '强': { level: 4, desc: '强', color: '🟠', advice: '外出需涂防晒霜、戴帽子', travel: '出门记得涂SPF30+防晒霜，戴帽子哦❤️' },
+        '很强': { level: 5, desc: '很强', color: '🔴', advice: '避免长时间户外活动，必须防晒', travel: '出门记得涂SPF50+的防晒霜，带遮阳伞哦❤️' },
+    }
+
+    if (apiCategory && categoryMap[apiCategory]) {
+        return categoryMap[apiCategory]
+    }
+
+    const lvl = parseInt(apiLevel)
+    if (lvl >= 1 && lvl <= 5) {
+        const keys = ['最弱', '弱', '中等', '强', '很强']
+        return categoryMap[keys[lvl - 1]]
+    }
+
+    return categoryMap['中等']
 }
 
-const estimateRealTimeUV = (dailyUV, hour, weatherText, month) => {
-    const maxUV = parseInt(dailyUV)
-    if (isNaN(maxUV) || maxUV <= 0) return 0
+const estimateRealTimeUVLevel = (apiLevel, hour, weatherText) => {
+    const level = parseInt(apiLevel)
+    if (isNaN(level) || level <= 0) return null
 
-    let timeFactor = 0
+    if (hour >= 18 || hour < 6) return null
+
+    let timeFactor = 1.0
     if (hour >= 11 && hour <= 13) timeFactor = 1.0
-    else if (hour >= 10 && hour <= 14) timeFactor = 0.85
-    else if (hour >= 9 && hour <= 15) timeFactor = 0.65
-    else if (hour >= 8 && hour <= 16) timeFactor = 0.4
-    else if (hour >= 7 && hour <= 17) timeFactor = 0.2
-    else return 0
-
-    let seasonFactor = 1.0
-    if (month >= 6 && month <= 8) seasonFactor = 1.15
-    else if (month >= 5 || month === 9) seasonFactor = 1.05
-    else if (month >= 4 || month === 10) seasonFactor = 0.95
-    else if (month >= 11 || month <= 2) seasonFactor = 0.75
-    else seasonFactor = 0.85
+    else if (hour === 10 || hour === 14) timeFactor = 0.85
+    else if (hour === 9 || hour === 15) timeFactor = 0.65
+    else if (hour === 8 || hour === 16) timeFactor = 0.45
+    else if (hour === 7 || hour === 17) timeFactor = 0.25
 
     const text = (weatherText || '').toLowerCase()
     let weatherFactor = 1.0
 
     if (text.includes('大暴雨') || text.includes('雷暴') || text.includes('冰雹')) {
-        weatherFactor = 0.15
+        weatherFactor = 0.3
     } else if (text.includes('大雨') || text.includes('中雨') || text.includes('雷阵雨')) {
-        weatherFactor = 0.25
-    } else if (text.includes('小雨') || text.includes('阵雨') || text.includes('毛毛雨')) {
-        weatherFactor = 0.45
+        weatherFactor = 0.5
+    } else if (text.includes('小雨') || text.includes('阵雨')) {
+        weatherFactor = 0.7
     } else if (text.includes('重度霾') || text.includes('浓雾') || text.includes('沙尘')) {
-        weatherFactor = 0.25
-    } else if (text.includes('霾') || text.includes('轻雾') || text.includes('薄雾') || text.includes('浮尘')) {
-        weatherFactor = 0.35
-    } else if (text.includes('阴') || text.includes('厚云')) {
-        weatherFactor = 0.40
-    } else if (text.includes('少云') || text.includes('散片云')) {
-        weatherFactor = 0.80
-    } else if (text.includes('多云')) {
+        weatherFactor = 0.4
+    } else if (text.includes('霾') || text.includes('雾') || text.includes('浮尘')) {
+        weatherFactor = 0.6
+    } else if (text.includes('阴')) {
         weatherFactor = 0.65
-    } else if (text.includes('晴间多云') || text.includes('晴转多云')) {
+    } else if (text.includes('多云')) {
         weatherFactor = 0.85
-    } else if (text.includes('晴') || text.includes('阳光充足')) {
-        weatherFactor = 1.0
     }
 
-    return Math.max(0, Math.round(maxUV * timeFactor * seasonFactor * weatherFactor))
+    const estimatedValue = level * timeFactor * weatherFactor
+    if (estimatedValue >= 4.5) return 5
+    if (estimatedValue >= 3.5) return 4
+    if (estimatedValue >= 2.5) return 3
+    if (estimatedValue >= 1.5) return 2
+    return 1
 }
 
 const getTempColor = (temp) => {
@@ -189,16 +197,22 @@ const handleWeather = async () => {
         let uvLine = ''
         let travelLine = ''
         if (uvData) {
+            const uvLevel = parseInt(uvData.level)
+            const apiCategory = uvData.category
+            const uvInfo = getUVLevelInfo(apiCategory, uvLevel)
             const currentWeatherText = nowData ? nowData.text : daily.textDay
-            const currentMonth = new Date().getMonth() + 1
-            const realTimeUV = estimateRealTimeUV(uvData.text, currentHour, currentWeatherText, currentMonth)
-            const uvInfo = getUVLevel(realTimeUV)
-            
+            const estimatedLevel = estimateRealTimeUVLevel(uvData.level, currentHour, currentWeatherText)
+
             if (currentHour >= 18 || currentHour < 6) {
-                uvLine = `\n· 🌙【当前紫外线 🟢 0级(无)🟢】夜间无紫外线`
+                uvLine = `\n· 🌙【当前紫外线 🟢 无🟢】夜间无紫外线`
             } else {
-                uvLine = `\n· ☀️【${period}紫外线 ${uvInfo.color} ${uvInfo.level}级(${uvInfo.desc})${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
+                uvLine = `\n· ☀️【${period}紫外线 ${uvInfo.color} ${uvInfo.desc}(${uvLevel}级)${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
                 travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
+
+                if (estimatedLevel !== null && estimatedLevel !== uvLevel) {
+                    const estInfo = getUVLevelInfo(null, estimatedLevel)
+                    uvLine += `\n  🕐当前估算${estInfo.desc}(${estimatedLevel}级)`
+                }
             }
         } else {
             uvLine = '\n· 紫外线 暂无数据'
