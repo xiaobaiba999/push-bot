@@ -18,8 +18,8 @@ const getUVLevelInfo = (uvIndex) => {
     const uv = Math.round(uvIndex * 10) / 10
     if (uv <= 2) return { level: 1, desc: '弱', color: '🟢', advice: '无需特别防护', travel: '放心出门玩耍～' }
     if (uv <= 5) return { level: 2, desc: '中等', color: '🟡', advice: '适当涂抹防晒霜', travel: '出门涂点防晒霜就好～' }
-    if (uv <= 7) return { level: 3, desc: '强', color: '🟠', advice: '外出需涂防晒霜、戴帽子', travel: '出门记得涂SPF30+防晒霜，戴帽子哦❤️' }
-    if (uv <= 10) return { level: 4, desc: '很强', color: '🔴', advice: '避免长时间户外活动，必须防晒', travel: '出门记得涂SPF50+的防晒霜，带遮阳伞哦❤️' }
+    if (uv <= 7.9) return { level: 3, desc: '强', color: '🟠', advice: '外出需涂防晒霜、戴帽子', travel: '出门记得涂SPF30+防晒霜，戴帽子哦❤️' }
+    if (uv <= 10.9) return { level: 4, desc: '很强', color: '🔴', advice: '避免长时间户外活动，必须防晒', travel: '出门记得涂SPF50+的防晒霜，带遮阳伞哦❤️' }
     return { level: 5, desc: '极强', color: '⚫', advice: '尽量避免外出，必须全面防护', travel: '紫外线极强，尽量别在太阳下暴晒，出门必须全副武装❤️' }
 }
 
@@ -159,8 +159,13 @@ const handleWeather = async () => {
         let uvLine = ''
         let travelLine = ''
         if (currentHour >= 18 || currentHour < 6) {
-            uvLine = `\n· 🌙【当前紫外线 🟢 无🟢】夜间无紫外线`
+            uvLine = `\n· 🌙【今日紫外线 ${uvInfo.color} UV${dailyUVMax.toFixed(1)} ${uvInfo.desc}${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
+            travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
+            uvLine += `\n  🌙当前夜间无紫外线`
         } else {
+            uvLine = `\n· ☀️【今日紫外线 ${uvInfo.color} UV${dailyUVMax.toFixed(1)} ${uvInfo.desc}${uvInfo.color}】\n  ⚠️ ${uvInfo.advice}`
+            travelLine = `\n· 🧴【出行提醒】${uvInfo.travel}`
+
             let currentUV = 0
             if (hourly && hourly.uv_index) {
                 const nowISO = new Date().toISOString().slice(0, 13)
@@ -171,16 +176,10 @@ const handleWeather = async () => {
                     }
                 }
             }
-            const currentUVInfo = getUVLevelInfo(currentUV)
-
-            uvLine = `\n· ☀️【${period}紫外线 ${currentUVInfo.color} UV${currentUV.toFixed(1)} ${currentUVInfo.desc}${currentUVInfo.color}】\n  ⚠️ ${currentUVInfo.advice}`
-
-            if (dailyUVMax > currentUV + 1) {
-                uvLine += `\n  📊今日最高UV${dailyUVMax.toFixed(1)}(${uvInfo.desc})`
+            if (currentUV > 0 && Math.abs(dailyUVMax - currentUV) > 1) {
+                const currentUVInfo = getUVLevelInfo(currentUV)
+                uvLine += `\n  🕐${period}实时UV${currentUV.toFixed(1)}(${currentUVInfo.desc})`
             }
-
-            const peakUVInfo = getUVLevelInfo(dailyUVMax)
-            travelLine = `\n· 🧴【出行提醒】${peakUVInfo.travel}`
         }
 
         let outfitTemp = nowTemp
