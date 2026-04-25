@@ -168,9 +168,11 @@ const handleWeather = async () => {
 
             let currentUV = 0
             if (hourly && hourly.uv_index) {
-                const nowISO = new Date().toISOString().slice(0, 13)
+                const now = new Date()
+                const localDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0')
+                const localKey = localDate + 'T' + String(now.getHours()).padStart(2, '0')
                 for (let i = 0; i < hourly.time.length; i++) {
-                    if (hourly.time[i].startsWith(nowISO)) {
+                    if (hourly.time[i].startsWith(localKey)) {
                         currentUV = hourly.uv_index[i] || 0
                         break
                     }
