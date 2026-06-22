@@ -2,7 +2,7 @@ name: WeChat Weather Push
 
 on:
   schedule:
-    - cron: '0 0,2,4,6,8,10 * * *'   # 每2小时: 北京时间 8/10/12/14/16/18点
+    - cron: '0 22,0,2,4,6,8,10,12 * * *'   # 每2小时: 北京时间 6/8/10/12/14/16/18/20点
   workflow_dispatch:
 
 jobs:
